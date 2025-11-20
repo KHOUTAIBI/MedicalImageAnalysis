@@ -81,17 +81,20 @@ def load(config):
 
     return train_dataloader, test_dataloader, (X_test_t, y_test_t)
 
-config = {
-    "dataset" : "S2_dataset",
-    "batch_size" : 256,
-    "n_angles" : 1500,
-    "rotation_init_type" : "random",
-    "n_wiggles" : 3,
-    "embedding_dim" : 3,
-    "distortion_type" : "wiggle"
 
-}
-train_loader, test_loser, _ = load(config)
+
+# ----------------------------------- Testing --------------------------------------------
+# config = {
+#     "dataset" : "S2_dataset",
+#     "batch_size" : 256,
+#     "n_angles" : 1500,
+#     "rotation_init_type" : "random",
+#     "n_wiggles" : 3,
+#     "embedding_dim" : 3,
+#     "distortion_type" : "wiggle"
+
+# }
+# train_loader, test_loser, _ = load(config)
     
     
 
