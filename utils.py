@@ -19,7 +19,7 @@ def load(config):
     """
     
     # Loading the points dataset
-    if config['dataset'] == "points_dataset":
+    if config["dataset"] == "points_dataset":
         dataset, labels = load_points(n_angles=config["n_angles"])  # dataset: np.array, labels: DataFrame
         dataset = dataset.astype(np.float32)
 
@@ -27,8 +27,17 @@ def load(config):
         dataset = (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
 
     # S1 Circle Dataset
-    if config['dataset'] == "S1_dataset":
-        dataset, labels = load_S1_synthetic_data(
+    if config["dataset"] == "S1_dataset":
+        dataset, labels, _ = load_S1_synthetic_data(
+            rotation_init_type=config["rotation_init_type"],
+            n_angles = config["n_angles"],
+            n_wiggles = config["n_wiggles"],
+            embedding_dim=config["embedding_dim"],
+            distortion_type=config["distortion_type"]
+        )
+    
+    if config["dataset"] == "S2_dataset":
+        dataset, labels, _ = load_S2_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
             n_angles = config["n_angles"],
             n_wiggles = config["n_wiggles"],
@@ -73,7 +82,7 @@ def load(config):
     return train_dataloader, test_dataloader, (X_test_t, y_test_t)
 
 config = {
-    "dataset" : "S1_dataset",
+    "dataset" : "S2_dataset",
     "batch_size" : 256,
     "n_angles" : 1500,
     "rotation_init_type" : "random",
