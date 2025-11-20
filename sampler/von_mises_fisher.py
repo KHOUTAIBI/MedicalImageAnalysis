@@ -1,7 +1,7 @@
 import math
 import torch
+from sampler.ive import ive
 from torch.distributions import Distribution, constraints
-from ive import ive
 
 
 class VonMisesFisher3D(Distribution):
@@ -20,6 +20,7 @@ class VonMisesFisher3D(Distribution):
         "loc": constraints.real,
         "scale": constraints.positive,
     } # type: ignore
+    
     support = constraints.real # type: ignore
     has_rsample = True
 

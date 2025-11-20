@@ -1,6 +1,5 @@
-from spherical_vae import *
-from dataloader.utils import *
-from torch.optim.adam import adam 
+from model.spherical_vae import *
+from dataloader.utils import * 
 from tqdm import tqdm
 # -------------------------- Training Loop ----------------------------
 
@@ -9,9 +8,6 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
     Training the model
     """
     # losses
-
-    batch_tqdm = tqdm(train_loader)
-    
     n_epochs = model.config["n_epochs"]
     
     batch_train_tqdm = tqdm(train_loader, desc='Batch Train')
@@ -62,6 +58,7 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
                 labels = labels.to(model.device)
                 z_batch, x_mu_batch, posterior_params = model(data)
 
+                # step
                 elbo_loss = model._elbo(data, x_mu_batch, posterior_params)
                 tets_loss += elbo_loss
                 epoch_test_losses.append(test_loss)

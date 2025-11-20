@@ -1,13 +1,9 @@
-from data import *
+from dataloader.data import *
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split 
-
-
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 
 def load(config):
     """
