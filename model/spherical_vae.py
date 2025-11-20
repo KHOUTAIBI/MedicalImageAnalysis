@@ -8,7 +8,8 @@ from sampler.von_mises_fisher import *
 
 
 class SphericalVAE(nn.Module):
-    def __init__(self, 
+    def __init__(self,
+                config, 
                 extrinsic_dim,
                 latent_dim,
                 sftbeta=4.5,
@@ -17,11 +18,12 @@ class SphericalVAE(nn.Module):
                 decoder_width=400,
                 decoder_depth=4,
                 dropout_p=0.0,          
-                 *args, 
-                 **kwargs) -> None:
+                *args, 
+                **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Variables
+        self.config = config
         self.extrinsic_dim = extrinsic_dim
         self.latent_dim = latent_dim
         self.sftbeta = sftbeta
@@ -131,9 +133,9 @@ class SphericalVAE(nn.Module):
         p_z = SphericalUniform(dim = self.latent_dim - 1, device=x.device)
 
         KL = torch.distributions.kl.kl_divergence(q_z, p_z)
-        mean = torch.mean((x - x_mu)**2)
+        reconstruction_loss = F.mse_loss(x, x_mu)
 
-        return mean + KL
+        return reconstruction_loss + self.config["beta"] * KL
 
     
     
