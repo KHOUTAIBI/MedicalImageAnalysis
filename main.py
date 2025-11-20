@@ -21,7 +21,7 @@ def main(config):
     scheduler = CosineAnnealingLR(optimizer=optimzer, T_max=config["n_epochs"])
 
 
-    train(model, train_loader=train_loader,test_loader=test_loader, optimizer=optimzer, scheduler=scheduler)
+    train(model, train_loader=train_loader, test_loader=test_loader, optimizer=optimzer, scheduler=scheduler)
 
 
 config = {

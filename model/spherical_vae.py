@@ -131,7 +131,7 @@ class SphericalVAE(nn.Module):
         kl_per_sample = self.kl_vmf_spherical_uniform(kappa)
         KL = kl_per_sample.mean()
         
-        reconstruction_loss = F.mse_loss(x, x_mu)
+        reconstruction_loss = torch.mean((x - x_mu) * (x - x_mu))
 
         return reconstruction_loss + self.config["beta"] * KL
 

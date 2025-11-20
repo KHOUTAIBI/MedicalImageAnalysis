@@ -1,6 +1,7 @@
 from model.spherical_vae import *
 from dataloader.utils import * 
 from tqdm import tqdm
+
 # -------------------------- Training Loop ----------------------------
 
 def train(model, train_loader, test_loader, optimizer, scheduler):
@@ -10,12 +11,11 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
     # losses
     n_epochs = model.config["n_epochs"]
     
-    batch_train_tqdm = tqdm(train_loader, desc='Batch Train')
-    batch_test_tqdm = tqdm(test_loader, desc='Batch Loss')
-    tglobal = tqdm(range(n_epochs), desc='Epoch', leave=False)
+    for epoch in tqdm(range(n_epochs), desc='Epoch'):
 
-    for epoch in tglobal:
-            
+        batch_train_tqdm = tqdm(train_loader, desc='Batch Train', leave=False)
+        batch_test_tqdm = tqdm(test_loader, desc='Batch Loss', leave=False)
+
         train_loss = 0
         test_loss = 0
         epoch_train_losses = []
@@ -37,16 +37,12 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
             # loss
             elbo_loss.backward()
             train_loss += elbo_loss
-            epoch_train_losses.append(train_loss)
+            epoch_train_losses.append(elbo_loss.item())
             optimizer.step()
             scheduler.step()
 
-            elbo_loss_cpu = elbo_loss.item()
-            batch_train_tqdm.set_postfix(elbo_loss_cpu)
+            batch_train_tqdm.set_postfix(loss=elbo_loss.item())
 
-        tglobal.set_postfix(loss = np.mean(epoch_train_losses))
-
-        print(f"Beginning Eval mode !")
         model.eval()
 
         with torch.no_grad():
@@ -60,16 +56,18 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
 
                 # step
                 elbo_loss = model._elbo(data, x_mu_batch, posterior_params)
-                tets_loss += elbo_loss
-                epoch_test_losses.append(test_loss)
-                elbo_loss_cpu = elbo_loss.item()
-                batch_test_tqdm.set_postfix(elbo_loss_cpu)
+                test_loss += elbo_loss
+                epoch_test_losses.append(elbo_loss.item())
 
-        tglobal.set_postfix(loss = np.mean(epoch_test_losses))
-        
+                batch_test_tqdm.set_postfix(loss=elbo_loss.item())
+
+        avg_train = np.mean(epoch_train_losses)
+        avg_test = np.mean(epoch_test_losses)
+
         if (epoch + 1) % 10 == 0:
-                print(f"Finished epoch {epoch+1}/{n_epochs} | Loss: {np.mean(epoch_train_losses):.4f}")
-                torch.save(model.state_dict(), f'./saves/pusht_chkpt_{epoch + 1}.pth')
+            print(f"Finished epoch {epoch+1}/{n_epochs} | Loss: {avg_train:.4f}")
+            torch.save(model.state_dict(), f'./saves/pusht_chkpt_{epoch + 1}.pth')
+
 
 
     
