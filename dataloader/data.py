@@ -173,7 +173,7 @@ def load_S1_synthetic_data(rotation_init_type : str,
                             n_wiggles = 6,
                             distortion_amplitude = 0.6,
                             embedding_dim = 10,
-                            noise_var = 0.1,
+                            noise_var = 0.5,
                             distortion_type = "wiggle" 
                            ):
     

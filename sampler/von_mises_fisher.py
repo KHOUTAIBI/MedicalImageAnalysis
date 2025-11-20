@@ -26,7 +26,7 @@ class VonMisesFisher3D(Distribution):
 
     def __init__(self, loc, scale, validate_args=None):
         assert loc.shape[-1] == 3, "This simple version only supports R^3."
-        self.loc = loc / loc.norm(dim=-1, keepdim=True)  # normalize just in case
+        self.loc = loc / loc.norm(dim=-1, keepdim=True)  # normalize just in case BECAUSE VON MISES NEEDS MU TO BE OR NORM 1 ||mu|| = 1
         self.scale = scale
         self.device = loc.device
         self.dtype = loc.dtype
