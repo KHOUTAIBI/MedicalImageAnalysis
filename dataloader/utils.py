@@ -18,7 +18,7 @@ def load(config):
         train_dataloader, test_dataloader
     """
     
-    # Loading the points dataset
+    # Loading Point dataset / Just points with noise added
     if config["dataset"] == "points_dataset":
         dataset, labels = load_points(n_angles=config["n_angles"])  # dataset: np.array, labels: DataFrame
         dataset = dataset.astype(np.float32)
@@ -26,7 +26,7 @@ def load(config):
         # [0, 1] normalization (your comment says [-1, 1], adjust formula if you really want [-1, 1])
         dataset = (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
 
-    # S1 Circle Dataset
+    # S1 Circle Dataset With dstorted poles
     if config["dataset"] == "S1_dataset":
         dataset, labels, _ = load_S1_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
@@ -35,7 +35,11 @@ def load(config):
             embedding_dim=config["embedding_dim"],
             distortion_type=config["distortion_type"]
         )
+
+        # normalize [-1, 1]
+        dataset = (dataset - torch.min(dataset)) / (torch.max(dataset) - torch.min(dataset))
     
+    # S2 Sphere with Distorted Poles
     if config["dataset"] == "S2_dataset":
         dataset, labels, _ = load_S2_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
@@ -44,6 +48,8 @@ def load(config):
             embedding_dim=config["embedding_dim"],
             distortion_type=config["distortion_type"]
         )
+        # normalize [-1, 1]
+        dataset = (dataset - torch.min(dataset)) / (torch.max(dataset) - torch.min(dataset))
 
     else:
         raise ValueError(f"Unknown dataset type: {config['dataset']}")
@@ -84,17 +90,17 @@ def load(config):
 
 
 # ----------------------------------- Testing --------------------------------------------
-# config = {
-#     "dataset" : "S2_dataset",
-#     "batch_size" : 256,
-#     "n_angles" : 1500,
-#     "rotation_init_type" : "random",
-#     "n_wiggles" : 3,
-#     "embedding_dim" : 3,
-#     "distortion_type" : "wiggle"
+config = {
+    "dataset" : "S2_dataset",
+    "batch_size" : 256,
+    "n_angles" : 1500,
+    "rotation_init_type" : "random",
+    "n_wiggles" : 3,
+    "embedding_dim" : 3,
+    "distortion_type" : "wiggle"
 
-# }
-# train_loader, test_loser, _ = load(config)
+}
+train_loader, test_loser, _ = load(config)
     
     
 
