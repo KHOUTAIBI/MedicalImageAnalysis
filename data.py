@@ -158,7 +158,7 @@ def get_S1_immersion(distortion_type : str,
     
     return synthesise_immersion
 
-# ------------------------------------- Loading S1 Points with noise added --------------------------
+# ------------------------------------- Loading S1 CIRCLE Points with noise added --------------------------
 def load_S1_synthetic_data(rotation_init_type : str,
                             n_angles = 1500,
                             radius = 1,
@@ -209,14 +209,130 @@ def load_S1_synthetic_data(rotation_init_type : str,
     return noisy_data, labels 
 # ---------------------------------------------- Testing the code !----------------------------------
 
-points, labels = load_points()
-noisy_points, labels_noisy = load_S1_synthetic_data(rotation_init_type="random", embedding_dim=3, distortion_type="bump")
+def get_S2_synthetic_immersion(radius, distortion_amplitude, embedding_dim, rotation):
+
+    """
+    This function returns the S2 Synthetic function 
+
+    Returns :
+        Retun the function that synthesises Bumped of Wiggled point clouds
+        IN THIS CASE THIS IS A SPHERE
+    """
+
+    def spherical(theta, phi):
+        """
+        The load the Spherical Coordinate of an Unit sphere
+
+        Returns:
+            The X,Y,Z coordinates
+        """
+
+        x = gs.sin(theta) * gs.cos(phi)
+        y = gs.sin(theta) * gs.sin(phi)
+        z = gs.cos(theta)
+        return gs.array([x, y, z])
+
+    def S2_synthetic_immersion(angle_pair):
+        """
+        Return the Immersion functions
+
+        Returns:
+            Immersion function
+        """
+        # Theta and phi
+        theta = angle_pair[0]
+        phi = angle_pair[1]
+
+        # Aplitude modified / To have a distorted SPHERE
+        amplitude = radius * (
+            1
+            + distortion_amplitude * gs.exp(-5 * theta**2)
+            + distortion_amplitude * gs.exp(-5 * (theta - gs.pi) ** 2)
+        )
+
+        # Points 
+        point = amplitude * spherical(theta, phi)
+        point = gs.squeeze(point, axis=-1)
+
+        # Embedding dim
+        if embedding_dim > 3:
+            point = gs.concatenate([point, gs.zeros(embedding_dim - 3)])
+
+        return gs.einsum("ij,j->i", rotation, point)
+
+    return S2_synthetic_immersion
+
+def load_S2_synthetic_data(rotation_init_type : str,
+                            n_angles = 1500,
+                            radius = 1,
+                            n_wiggles = 6,
+                            distortion_amplitude = 0.6,
+                            embedding_dim = 10,
+                            noise_var = 0.1,
+                            distortion_type = "wiggle"):
+    
+    """Create "wiggly" OR ANOTHER TPYE of Sphere with noise.
+
+    Returns
+    -------
+    noisy_data : array-like, shape=[n_times, embedding_dim]
+        Number of firings per time step and per cell.
+    labels : pd.DataFrame, shape=[n_times, 1]
+        Labels organized in 1 column: angles.
+    """
+    
+    rotation = torch.eye(n=embedding_dim)
+    if rotation_init_type == "random":
+        rotation = SpecialOrthogonal(n=embedding_dim).random_point()
+    
+    immersion = get_S2_synthetic_immersion(radius=radius, 
+                                           distortion_amplitude=distortion_amplitude,
+                                           rotation=rotation,
+                                           embedding_dim=embedding_dim,
+                                           )
+
+    # ! KEEP THIS AT SQRT OR IT WILL TAKE A LOOOOONG TIME TO MAKE
+    sqrt_size = int(np.sqrt(n_angles))
+    # Theta sphere
+    thetas = gs.linspace(0.01, gs.pi, sqrt_size)
+    # phi on sphere
+    phis = gs.linspace(0, 2 * gs.pi, sqrt_size)
+
+    # points
+    points = torch.cartesian_prod(thetas, phis) # this is an interesting function that gpt suggested it retuns {x1,y1}, {x1,y2}... {x2, y1}...
+    
+    labels = pd.DataFrame({"thetas": points[:, 0], "phis": points[:, 1]})
+    
+    data = torch.zeros(sqrt_size * sqrt_size, embedding_dim)
+
+    # Immersion data points
+    for idx, point in enumerate(points):
+        point = gs.array(point)
+        data[idx] = immersion(point)
+
+    # Adding noise and randomness to amplitudes
+    noise_dist = MultivariateNormal(
+        loc=torch.zeros(embedding_dim),
+        covariance_matrix = radius * noise_var * torch.eye(embedding_dim),
+    )
+
+    noisy_data = data + noise_dist.sample((sqrt_size * sqrt_size,))
+
+    return noisy_data, labels, data
+
+
+noisy_points, labels_noisy, points = load_S2_synthetic_data(rotation_init_type="random", embedding_dim=3, distortion_type="wiggle")
 print(labels_noisy.head())
 
-# bump = _bump(position=500, width=100, length_bump=points.shape[0])
+# # bump = _bump(position=500, width=100, length_bump=points.shape[0])
+N = points.shape[0]
+n = int(np.sqrt(N))
+X = points[:, 0].reshape(n, n)
+Y = points[:, 1].reshape(n, n)
+Z = points[:, 2].reshape(n, n)
 
-ax = plt.figure().add_subplot(projection='3d')
-
-ax.scatter(noisy_points[:,0], noisy_points[:, 1], noisy_points[:, 2])
-plt.grid()
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.plot_wireframe(X, Y, Z, color='k', linewidth=0.5)
+# ax.scatter(noisy_points[:,0], noisy_points[:,1], noisy_points[:,2], s=3)
 plt.show()
