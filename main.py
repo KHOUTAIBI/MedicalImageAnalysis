@@ -23,9 +23,9 @@ def main(config):
     if config["train"]:
         train(model, train_loader=train_loader, test_loader=test_loader, optimizer=optimzer, scheduler=scheduler)
     
-    elif config["infer"]:
+    if config["infer"]:
 
-        model = SphericalVAE(config).to(config["device"])
+        model = SphericalVAE(config)
         state_dict = torch.load(config["save_path"], map_location=config["device"])
         model.load_state_dict(state_dict)
         model.eval()
@@ -62,6 +62,9 @@ def main(config):
         ax.set_ylabel("x2")
         ax.set_zlabel("x3")
         plt.show()
+    
+    else :
+        ValueError("Please train or infer.")
 
 
 
@@ -76,10 +79,10 @@ config = {
     "n_wiggles" : 3, # number of wiggles
     "distortion_type" : "wiggle", # distortion types
     "scheduler" : False,             # Step scheduler or not / default False
-    "lr" : 1e-4,
+    "lr" : 1e-3,
     "weight_decay" : 1e-6,
 
-    "train" : False,
+    "train" : True,
     "infer" : True,
     "save_path" : "./saves/spherical_VAE_chkpt_final.pth",
 
@@ -93,7 +96,8 @@ config = {
     "decoder_depth": 4,        # number of layers in decoder
     "dropout_p": 0.1,          # dropout probability
     "device": "cuda",           # or "cpu"
-    "beta" : 0.03, # Alpha refularizer of KL divergence 
+    "gamma" : 1.0,
+    "beta" : 1.0, # beta refularizer of KL divergence 
     "alpha" : 10 # regularization of latent loss
 }
 
