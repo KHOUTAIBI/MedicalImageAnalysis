@@ -116,6 +116,24 @@ class SphericalVAE(nn.Module):
         
         # return z, x_mu and posteriori params of distribution
         return z, x_mu, posteriori_params
+    
+    def _elbo(self, x, x_mu, posteriori_params):
+        """
+        The Estimated Lower Bound of the VAE training
+
+        Returns :
+
+            ELBO of the VAE = E(log(p(x|z))) - KL(q(z|x) || p(z))
+        """
+
+        z_mu, z_kappa = posteriori_params
+        q_z = VonMisesFisher3D(z_mu, z_kappa)
+        p_z = SphericalUniform(dim = self.latent_dim - 1, device=x.device)
+
+        KL = torch.distributions.kl.kl_divergence(q_z, p_z)
+        mean = torch.mean((x - x_mu)**2)
+
+        return mean + KL
 
     
     
