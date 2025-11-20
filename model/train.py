@@ -40,19 +40,36 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
             latent_loss_batch_train = latent_loss(labels, z_batch, model.config)
             elbo_loss_train += model.config["alpha"] * latent_loss_batch_train
 
+
+            # ! PROBLEM : KAPPA INCREASES / THE POLICY BECOMES DETERMINISTIC AS kappa->inifnity / THIS IS BECAUSE OF THE DATASET DETERMINISTIC !!!
+            if epoch % 50 == 0 :  # first batch of first epoch
+                z_mu, z_kappa = posterior_params
+                q_z = VonMisesFisher3D(z_mu, z_kappa)
+                kappa = q_z.scale
+
+                recon = torch.mean((data - x_mu_batch) * (data - x_mu_batch)).item()
+                KL = model.kl_vmf_spherical_uniform(kappa).mean().item()
+
+                print(
+                    f"[DEBUG] recon={recon:.4f}  KL={KL:.4f}  "
+                    f"beta*KL={model.config['beta']*KL:.4f}  "
+                    f"kappa_mean={z_kappa.mean().item():.4f}"
+                )
+
             # loss
             elbo_loss_train.backward()
             train_loss += elbo_loss_train
             epoch_train_losses.append(elbo_loss_train.item())
             optimizer.step()
-            # step scheduler
-            if model.config["scheduler"]:
-                scheduler.step()
+            
 
             batch_train_tqdm.set_postfix(loss_train=elbo_loss_train.item())
 
+        # step scheduler
+        if model.config["scheduler"]:
+                scheduler.step()
         model.eval()
-
+        
         with torch.no_grad():
             for batch_data in batch_test_tqdm :
 

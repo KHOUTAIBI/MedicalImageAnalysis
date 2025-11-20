@@ -133,7 +133,7 @@ class SphericalVAE(nn.Module):
         
         reconstruction_loss = torch.mean((x - x_mu) * (x - x_mu))   
     
-        return reconstruction_loss + self.config["beta"] * KL
+        return self.config["gamma"] * reconstruction_loss + self.config["beta"] * KL
 
 
     def kl_vmf_spherical_uniform(self, kappa) -> torch.Tensor:
