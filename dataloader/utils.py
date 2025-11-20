@@ -19,8 +19,6 @@ def load(config):
         dataset, labels = load_points(n_angles=config["n_angles"])  # dataset: np.array, labels: DataFrame
         dataset = dataset.astype(np.float32)
 
-        # [0, 1] normalization (your comment says [-1, 1], adjust formula if you really want [-1, 1])
-        dataset = (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
 
     # S1 Circle Dataset With dstorted poles
     elif config["dataset"] == "S1_dataset":
@@ -32,10 +30,6 @@ def load(config):
             distortion_type=config["distortion_type"]
         )
 
-        # normalize [-1, 1]
-        mean = dataset.mean(dim=0, keepdim=True)
-        std = dataset.std(dim=0, keepdim=True)
-        dataset = (dataset - mean) / std
     
     # S2 Sphere with Distorted Poles
     elif config["dataset"] == "S2_dataset":
@@ -46,10 +40,6 @@ def load(config):
             embedding_dim=config["embedding_dim"],
             distortion_type=config["distortion_type"]
         )
-        # normalize [-1, 1]
-        mean = dataset.mean(dim=0, keepdim=True)
-        std = dataset.std(dim=0, keepdim=True)
-        dataset = (dataset - mean) / std
 
     else:
         raise ValueError(f"Unknown dataset type: {config['dataset']}")
@@ -82,7 +72,7 @@ def load(config):
     # Use batch_size from config if available, else default to 256 (default 256)
     batch_size = config["batch_size"]
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     test_dataloader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_dataloader, test_dataloader, (X_test_t, y_test_t)
