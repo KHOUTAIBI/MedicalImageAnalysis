@@ -23,7 +23,7 @@ def load(config):
         dataset = (dataset - np.min(dataset)) / (np.max(dataset) - np.min(dataset))
 
     # S1 Circle Dataset With dstorted poles
-    if config["dataset"] == "S1_dataset":
+    elif config["dataset"] == "S1_dataset":
         dataset, labels, _ = load_S1_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
             n_angles = config["n_angles"],
@@ -33,10 +33,12 @@ def load(config):
         )
 
         # normalize [-1, 1]
-        dataset = (dataset - torch.min(dataset)) / (torch.max(dataset) - torch.min(dataset))
+        mean = dataset.mean(dim=0, keepdim=True)
+        std = dataset.std(dim=0, keepdim=True)
+        dataset = (dataset - mean) / std
     
     # S2 Sphere with Distorted Poles
-    if config["dataset"] == "S2_dataset":
+    elif config["dataset"] == "S2_dataset":
         dataset, labels, _ = load_S2_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
             n_angles = config["n_angles"],
@@ -45,7 +47,9 @@ def load(config):
             distortion_type=config["distortion_type"]
         )
         # normalize [-1, 1]
-        dataset = (dataset - torch.min(dataset)) / (torch.max(dataset) - torch.min(dataset))
+        mean = dataset.mean(dim=0, keepdim=True)
+        std = dataset.std(dim=0, keepdim=True)
+        dataset = (dataset - mean) / std
 
     else:
         raise ValueError(f"Unknown dataset type: {config['dataset']}")
@@ -84,19 +88,70 @@ def load(config):
     return train_dataloader, test_dataloader, (X_test_t, y_test_t)
 
 
+# ----------------------------------- Angle Loss -----------------------------------------
+
+def latent_loss(labels, z, config):
+    """
+    Compute supervised latent loss for S1 or S2 datasets.
+    Uses exact geodesic distance on the sphere.
+    """
+
+    dataset = config["dataset"]
+
+    # ----------------------------------------
+    # S1: z lies on S1 ⊂ R2 or S2 ⊂ R3
+    # Geodesic distance:
+    #   d = arccos( cos(Δφ) )
+    # ----------------------------------------
+    if dataset == "S1_dataset":
+        # angle from latent code (use x,y coordinates)
+        latent_phi = torch.atan2(z[:, 1], z[:, 0])
+        latent_phi = (latent_phi + 2*torch.pi) % (2*torch.pi)
+
+        gt_phi = labels[:, 0]
+
+        diff = torch.cos(latent_phi - gt_phi).clamp(-1.0, 1.0)
+        geod = torch.acos(diff)
+        return (geod**2).mean()
+
+    # ----------------------------------------
+    # S2: use z ∈ S² and convert labels (θ, φ) to true vec
+    # True geodesic distance:
+    #   d = arccos( <z, z_gt> )
+    # ----------------------------------------
+    elif dataset == "S2_dataset":
+        theta = labels[:, 0]
+        phi   = labels[:, 1]
+
+        # Convert labels to ground-truth point on S2
+        z_gt = torch.stack([
+            torch.sin(theta) * torch.cos(phi),
+            torch.sin(theta) * torch.sin(phi),
+            torch.cos(theta)
+        ], dim=1)
+
+        # Geodesic distance via inner product
+        inner = (z * z_gt).sum(dim=1).clamp(-1.0, 1.0)
+        geod = torch.acos(inner)
+
+        return (geod**2).mean()
+
+    else:
+        raise ValueError("Unknown dataset type in latent_loss()")
+
 
 # ----------------------------------- Testing --------------------------------------------
-config = {
-    "dataset" : "S2_dataset",
-    "batch_size" : 256,
-    "n_angles" : 1500,
-    "rotation_init_type" : "random",
-    "n_wiggles" : 3,
-    "embedding_dim" : 3,
-    "distortion_type" : "wiggle"
+# config = {
+#     "dataset" : "S2_dataset",
+#     "batch_size" : 256,
+#     "n_angles" : 1500,
+#     "rotation_init_type" : "random",
+#     "n_wiggles" : 3,
+#     "embedding_dim" : 3,
+#     "distortion_type" : "wiggle"
 
-}
-train_loader, test_loser, _ = load(config)
+# }
+# train_loader, test_loser, _ = load(config)
     
     
 
