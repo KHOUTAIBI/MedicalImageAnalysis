@@ -4,11 +4,19 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
+import os
+os.environ["GEOMSTATS_BACKEND"] = "pytorch"
+
 import geomstats.backend as gs
+from geomstats.geometry.special_orthogonal import SpecialOrthogonal
+import torch
+
+# Check backend
+print(gs.__name__)
 from geomstats.geometry.special_orthogonal import SpecialOrthogonal
 from torch.distributions.multivariate_normal import MultivariateNormal
 
-os.environ["GEOMSTATS_BACKEND"] = "pytorch"
  
 
 # ----------------------------------------Loading Data Points-----------------------------------------------------
