@@ -57,14 +57,16 @@ class SphericalVAE(nn.Module):
         mu : Mean of the multivariate Gaussians
         logvar : Vector representing the diagonal covariance of the multivariate gaussians
         """
-
+        
         h = F.softplus(self.encoder_function(x), beta=self.sftbeta)
 
         for layer in self.encoder_linear_layers:
             h = layer(h)
             h = F.softplus(h, beta = self.sftbeta)
+            
         
         z_mu = self.function_z_mu(h)
+        
         z_kappa = F.softplus(self.function_z_logvar(h)) + 1
 
         return z_mu, z_kappa
@@ -107,9 +109,9 @@ class SphericalVAE(nn.Module):
         Logvar : Variance vector of the Gaussians
         """
 
-        posteriori_params = self.encode(x)
-        z = self.reparemetrize(posteriori_params)
-        x_mu = self.decode(z)
+        posteriori_params = self.encode(x) # (z_latent, z_kappa)
+        z = self.reparemetrize(posteriori_params) # reparametrize
+        x_mu = self.decode(z) # x_mu (output points)
         
         # return z, x_mu and posteriori params of distribution
         return z, x_mu, posteriori_params
@@ -143,12 +145,11 @@ class SphericalVAE(nn.Module):
         kappa: (...,) tensor of concentrations
         returns: (...,) tensor of KLs
         """
-        eps = 1e-8
-        # coth(kappa) = cosh(kappa) / (sinh(kappa) + eps)
-        sinh_k = torch.sinh(kappa) + eps
+
+        sinh_k = torch.sinh(kappa) 
         coth_k = torch.cosh(kappa) / sinh_k
 
-        kl = torch.log(kappa + eps) - torch.log(sinh_k) + kappa * coth_k - 1.0
+        kl = torch.log(kappa) - torch.log(sinh_k) + kappa * coth_k - 1.0
         return kl
     
     

@@ -6,7 +6,7 @@ import scipy.special
 class IveFunction(torch.autograd.Function):
     """
     Differentiable wrapper around scipy.special.ive(v, z)
-    using PyTorch custom autograd.
+    (exponentially scaled modified Bessel function of the first kind).
     """
 
     @staticmethod
@@ -15,10 +15,9 @@ class IveFunction(torch.autograd.Function):
         ctx.v = v
         ctx.save_for_backward(z)
 
-        # Convert to CPU NumPy
         z_cpu = z.detach().cpu().numpy()
 
-        # Use specialized functions for speed/stability
+        # Use specialized functions for v=0,1
         if v == 0:
             out_np = scipy.special.i0e(z_cpu)
         elif v == 1:
@@ -26,7 +25,6 @@ class IveFunction(torch.autograd.Function):
         else:
             out_np = scipy.special.ive(v, z_cpu)
 
-        # Convert back to torch tensor
         out = torch.from_numpy(out_np).to(z.device, z.dtype)
         return out
 
@@ -35,24 +33,46 @@ class IveFunction(torch.autograd.Function):
         v = ctx.v
         (z,) = ctx.saved_tensors
 
-        # d/dz ive(v, z)
-        #   = ive(v-1, z) - ive(v, z)*(v+z)/z
-        dz = ive(v - 1, z) - ive(v, z) * (v + z) / z # Here is the gradient of the Bessel function
+        z_cpu = z.detach().cpu().numpy()
+        eps = 1e-8
 
-        return None, grad_output * dz
+        # Compute ive(v, z) and ive(v-1, z) on CPU with SciPy
+        if v == 0:
+            ive_v_np   = scipy.special.i0e(z_cpu)
+            ive_vm1_np = scipy.special.ive(-1, z_cpu)  # or scipy.special.i1e for appropriate relation
+        elif v == 1:
+            ive_v_np   = scipy.special.i1e(z_cpu)
+            ive_vm1_np = scipy.special.i0e(z_cpu)
+        else:
+            ive_v_np   = scipy.special.ive(v, z_cpu)
+            ive_vm1_np = scipy.special.ive(v - 1, z_cpu)
+
+        ive_v   = torch.from_numpy(ive_v_np).to(z.device, z.dtype)
+        ive_vm1 = torch.from_numpy(ive_vm1_np).to(z.device, z.dtype)
+
+        # sign(z) and safe division
+        sign_z = torch.sign(z)
+        z_safe = z.clone()
+        z_safe = torch.where(z_safe.abs() < eps, torch.full_like(z_safe, eps), z_safe)
+
+        # Correct derivative for scaled ive:
+        # d/dz ive(v, z) = ive(v-1, z) - (v/z + sign(z)) * ive(v, z)
+        dz = ive_vm1 - (v / z_safe + sign_z) * ive_v
+
+        grad_z = grad_output * dz
+        return None, grad_z
 
 
 class Ive(nn.Module):
     """
     Module wrapper so you can write Ive(v)(z)
     """
-
     def __init__(self, v):
         super().__init__()
         self.v = v
 
     def forward(self, z):
-        return ive(self.v, z)
+        return IveFunction.apply(self.v, z)
 
 
 # Convenient alias
