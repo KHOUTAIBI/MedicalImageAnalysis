@@ -41,6 +41,8 @@ def load(config):
             distortion_type=config["distortion_type"]
         )
 
+        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0)
+
     else:
         raise ValueError(f"Unknown dataset type: {config['dataset']}")
 
@@ -72,7 +74,7 @@ def load(config):
     # Use batch_size from config if available, else default to 256 (default 256)
     batch_size = config["batch_size"]
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_dataloader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_dataloader, test_dataloader, (X_test_t, y_test_t)
@@ -91,18 +93,17 @@ def latent_loss(labels, z, config):
     # ----------------------------------------
     # S1: z lies on S1 ⊂ R2 or S2 ⊂ R3
     # Geodesic distance:
-    #   d = arccos( cos(Δφ) )
+    #   
     # ----------------------------------------
     if dataset == "S1_dataset":
         # angle from latent code (use x,y coordinates)
         latent_phi = torch.atan2(z[:, 1], z[:, 0])
-        latent_phi = (latent_phi + 2*torch.pi) % (2*torch.pi)
+        # latent_phi = (latent_phi + 2*torch.pi) % (2*torch.pi)
 
         gt_phi = labels[:, 0]
 
-        diff = torch.cos(latent_phi - gt_phi).clamp(-1.0, 1.0)
-        geod = torch.acos(diff)
-        return (geod**2).mean()
+        diff = torch.cos(latent_phi - gt_phi)
+        return ((1 - diff)**2).mean()
 
     # ----------------------------------------
     # S2: use z ∈ S² and convert labels (θ, φ) to true vec
@@ -110,21 +111,34 @@ def latent_loss(labels, z, config):
     #   d = arccos( <z, z_gt> )
     # ----------------------------------------
     elif dataset == "S2_dataset":
-        theta = labels[:, 0]
-        phi   = labels[:, 1]
+        # labels: [theta_gt, phi_gt]
+        theta_gt = labels[:, 0]
+        phi_gt   = labels[:, 1]
 
-        # Convert labels to ground-truth point on S2
-        z_gt = torch.stack([
-            torch.sin(theta) * torch.cos(phi),
-            torch.sin(theta) * torch.sin(phi),
-            torch.cos(theta)
-        ], dim=1)
+        # z (64, 64, 3)
+        eps = 1e-8
+        z_norm = z / (z.norm(dim=-1, keepdim=True) + eps)
 
-        # Geodesic distance via inner product
-        inner = (z * z_gt).sum(dim=1).clamp(-1.0, 1.0)
-        geod = torch.acos(inner)
+        x = z[..., 0]
+        y = z[..., 1]
+        z_comp = z_norm[..., 2].clamp(-1.0 + eps, 1.0 - eps)
 
-        return (geod**2).mean()
+        # Recover predicted spherical angles (θ̂, φ̂)
+        # θ̂ = arccos(z), φ̂ = atan2(y, x)
+        theta_hat = torch.acos(z_comp) # because norm of Z is one
+        phi_hat   = torch.atan2(y, x)
+        phi_hat = (phi_hat + 2 * torch.pi) % (2 * torch.pi)
+
+        # Angle differences
+        dtheta = theta_gt - theta_hat
+        dphi   = phi_gt - phi_hat
+
+        # LS2 = ( 1 - cos(Δθ) + sin θ_gt sin θ̂ (1 - cos(Δφ)) )^2
+        term1 = 1.0 - torch.cos(dtheta)
+        term2 = torch.sin(theta_gt) * torch.sin(theta_hat) * (1.0 - torch.cos(dphi))
+        ls2   = (term1 + term2) ** 2
+
+        return ls2.mean()
 
     else:
         raise ValueError("Unknown dataset type in latent_loss()")
