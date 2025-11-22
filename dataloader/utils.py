@@ -19,6 +19,8 @@ def load(config):
         dataset, labels = load_points(n_angles=config["n_angles"])  # dataset: np.array, labels: DataFrame
         dataset = dataset.astype(np.float32)
 
+        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0)
+
 
     # S1 Circle Dataset With dstorted poles
     elif config["dataset"] == "S1_dataset":
@@ -41,7 +43,17 @@ def load(config):
             distortion_type=config["distortion_type"]
         )
 
-        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0)
+        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0) # type: ignore
+    
+    # T2 = S2 x S2 Torus
+    elif config["dataset"] == "T2_dataset":
+        dataset, labels, _ = load_T2_synthetic_data(
+            rotation_init_type=config["rotation_init_type"],
+            n_angles = config["n_angles"],
+            embedding_dim=config["embedding_dim"],
+        )
+
+        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0) # type: ignore
 
     else:
         raise ValueError(f"Unknown dataset type: {config['dataset']}")
