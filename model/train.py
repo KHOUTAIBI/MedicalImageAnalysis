@@ -11,7 +11,7 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
     # losses
     n_epochs = model.config["n_epochs"]
     tglobal = tqdm(range(n_epochs), desc='Epoch')
-    min_loss = np.inf 
+    
     
     for epoch in tglobal:
 
@@ -33,19 +33,22 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
             labels = labels.to(model.device)
 
             optimizer.zero_grad()
-            z_batch, x_mu_batch, posterior_params = model(data)
-            z_mu, z_kappa = posterior_params
 
+            z_batch, x_mu_batch, posterior_params = model(data)
+            z_mu, _ = posterior_params
+            z_mu = z_mu / z_mu.norm(dim = -1, keepdim = True)
 
             elbo_loss_train = model._elbo(data, x_mu_batch, posterior_params)
-            latent_loss_batch_train = latent_loss(labels, z_batch, model.config) # ! Probelm in this place
+            latent_loss_batch_train = latent_loss(labels, z_mu, model.config) # ! Fixed ?
             elbo_loss_train += model.config["alpha"] * latent_loss_batch_train
 
 
 
             # ! WARNING : KAPPA INCREASES / THE POLICY BECOMES DETERMINISTIC AS kappa->inifnity / THIS IS BECAUSE OF THE DATASET DETERMINISTIC !!!
             if epoch % 50 == 0 :  # Printing for more info
+                
                 z_mu, z_kappa = posterior_params
+
                 q_z = VonMisesFisher3D(z_mu, z_kappa)
                 kappa = q_z.scale
 
@@ -55,8 +58,8 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
 
                 print(
                     f"[DEBUG] recon={model.config['gamma'] * recon:.4f}  KL={KL:.4f}  "
-                    f"beta*KL={model.config['beta']*KL:.4f}  "
-                    f"kappa_mean={z_kappa.mean().item():.4f} "
+                    f"beta*KL={model.config['beta'] * KL:.4f}  "
+                    f"theta_kappa_mean={z_kappa.mean().item():.4f} "
                     f"latent_loss_mean={model.config['alpha'] *latent_loss_mean}"
                 )
 
@@ -82,7 +85,7 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
                 z_batch, x_mu_batch, posterior_params = model(data)
 
                 # step
-                elbo_loss_test = model._elbo(data, x_mu_batch, posterior_params)
+                elbo_loss_test = model._elbo(data, x_mu_batch, posterior_params) 
                 latent_loss_batch_test = latent_loss(labels, z_batch, model.config)
                 elbo_loss_test += model.config["alpha"] * latent_loss_batch_test
                 test_loss += elbo_loss_test
@@ -100,8 +103,7 @@ def train(model, train_loader, test_loader, optimizer, scheduler):
         tglobal.set_postfix(loss_train = avg_train, loss_test = avg_test)
 
         if (epoch + 1) % 10 == 0:
-            torch.save(model.state_dict(), f'./saves/spherical_VAE_chkpt_final.pth')
-            min_loss = avg_test
+            torch.save(model.state_dict(), model.config["save_path"])
 
 
 

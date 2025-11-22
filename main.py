@@ -1,7 +1,8 @@
-from model.spherical_vae import *
-from model.train import *
 from dataloader.data import *
 from dataloader.utils import *
+from model.torus_vae import *
+from model.train import *
+from model.spherical_vae import *
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import argparse as arg
@@ -69,6 +70,7 @@ def main(config):
         with torch.no_grad():
             x_mu = model.decode(z_flat)     
 
+        
         print(torch.nn.functional.mse_loss(x_mu.cpu(), original_points))
         x_mu = x_mu.cpu().numpy()
 
@@ -79,9 +81,9 @@ def main(config):
         
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
-        # ax.plot_wireframe(X, Y, Z, color='k', linewidth=0.5, label='sampled')
-        # ax.plot_wireframe(X_original, Y_original, Z_original, color='b', linewidth = 0.5, label='original')
-        ax.plot_wireframe(X_latent, Y_latent, Z_latent, color='r', linewidth = 0.5, label='latent')
+        ax.scatter(X, Y, Z, color='k', linewidth=0.5, label='sampled')
+        ax.scatter(X_original, Y_original, Z_original, color='b', linewidth = 0.5, label='original') # type: ignore
+        ax.scatter(X_latent, Y_latent, Z_latent, color='r', linewidth = 0.5, label='latent')
         
         ax.set_xlabel("x")
         ax.set_ylabel("y")
@@ -97,6 +99,8 @@ def main(config):
 config = {
 
     "dataset" : "S2_dataset", # dataset type to be used
+    "longest_radius" : 1.5, # Longest radius of the torus
+    "shortest_radius" : 0.5, # Shortest radius of the torus
     "batch_size" : 64,  # Batch size of the dataloader
     "n_epochs" : 600, # num_epochs
     "embedding_dim" : 3,       # embedding dims of the dataset and points
@@ -104,28 +108,28 @@ config = {
     "n_angles" : 1000, # angles of points
     "n_wiggles" : 3, # number of wiggles
     "distortion_type" : "wiggle", # distortion types
-    "scheduler" : False,             # Step scheduler or not / default False
+    "scheduler" : True,             # Step scheduler or not / default False
     "lr" : 1e-3,                    # LR 
     "weight_decay" : 1e-6,          # Weight decay L2 regularization
     "n_grid" : 38,
 
-    "train" : False,
+    "train" : True,
     "infer" : True,
-    "save_path" : "./saves/spherical_VAE_chkpt_final.pth",
+    "save_path" : "./saves/toroidal_VAE_chkpt_final.pth",
  
 
     "extrinsic_dim": 3,        # e.g. dimension of extrinsic features (xyz)
     "latent_dim": 3,          # size of latent code
-    "sftbeta": 1.0,            # smoothing / scaling factor if used
+    "sftbeta": 4.5,            # smoothing / scaling factor if used
     "encoder_width": 128,      # width of MLP layers in encoder
     "encoder_depth": 4,        # number of layers in encoder
     "decoder_width": 128,      # width of MLP layers in decoder
     "decoder_depth": 4,        # number of layers in decoder
     "dropout_p": 0.1,          # dropout probability
     "device": "cuda",           # or "cpu"
-    "gamma" : 1.0, # reconstruction loss
-    "beta" : 0.03, # beta refularizer of KL divergence 
-    "alpha" : 10.0, # regularization of latent loss
+    "gamma" : 0.5, # reconstruction loss
+    "beta" : 0.5, # beta refularizer of KL divergence 
+    "alpha" : 100.0, # regularization of latent loss
 }
 
 
