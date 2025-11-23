@@ -74,8 +74,8 @@ class ToroidalVAE(nn.Module):
         longest_radius = self.longest_radius
         shortest_radius = self.shortes_radius 
 
-        x = (longest_radius - shortest_radius * cos_theta) * cos_phi
-        y = (shortest_radius - shortest_radius * cos_theta) * sin_phi
+        x = (longest_radius + shortest_radius * cos_theta) * cos_phi
+        y = (shortest_radius + shortest_radius * cos_theta) * sin_phi
         z = shortest_radius * sin_theta
 
         return gs.stack([x, y, z], axis=-1)

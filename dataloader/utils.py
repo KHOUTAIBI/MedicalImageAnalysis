@@ -122,7 +122,7 @@ def latent_loss(labels, z, config):
     # True geodesic distance:
     #   d = arccos( <z, z_gt> )
     # ----------------------------------------
-    elif dataset == "S2_dataset":
+    elif dataset == "S2_dataset" :
         # labels: [theta_gt, phi_gt]
         theta_gt = labels[:, 0]
         phi_gt   = labels[:, 1]
@@ -151,6 +151,20 @@ def latent_loss(labels, z, config):
         ls2   = (term1 + term2) ** 2
 
         return ls2.mean()
+
+    elif config["dataset"] == "T2_dataset":
+        # Torus Loss
+
+        rho = torch.sqrt(z[..., 0]**2 + z[..., 1]**2)
+
+        latent_thetas = (torch.atan2(z[..., 2], rho - config["longest_radius"]) + 2 * torch.pi) % (2 * torch.pi)
+        latent_phis   = (torch.atan2(z[..., 1], z[..., 0]) + 2 * torch.pi) % (2 * torch.pi)
+
+        thetas_loss = torch.mean(1 - torch.cos(latent_thetas - labels[:, 0]))
+        phis_loss   = torch.mean(1 - torch.cos(latent_phis   - labels[:, 1]))
+
+        latent_loss = thetas_loss + phis_loss
+        return latent_loss
 
     else:
         raise ValueError("Unknown dataset type in latent_loss()")

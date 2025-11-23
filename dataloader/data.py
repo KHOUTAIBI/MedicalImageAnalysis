@@ -348,8 +348,8 @@ def get_T2_synthetic_immersion(longest_radius, shortest_radius, distortion_ampli
             The X,Y,Z coordinates
         """
 
-        x = (longest_radius - shortest_radius * gs.cos(theta)) * gs.cos(phi) 
-        y = (longest_radius - shortest_radius * gs.cos(theta)) * gs.sin(phi)
+        x = (longest_radius + shortest_radius * gs.cos(theta)) * gs.cos(phi) 
+        y = (longest_radius + shortest_radius * gs.cos(theta)) * gs.sin(phi)
         z = shortest_radius * gs.sin(theta)
         return gs.array([x, y, z])
 
