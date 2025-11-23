@@ -37,7 +37,7 @@ def train_epoch(model, train_loader, test_loader, optimizer, scheduler, epoch):
 
         optimizer.zero_grad()
 
-        if model.config["dataset"] == "S2_dataset":
+        if model.config["dataset"] == "S2_dataset" or model.config["dataset"] == "S1_dataset":
             z_batch, x_mu_batch, posterior_params = model(data)
             z_mu, _ = posterior_params
             z_mu = z_mu / z_mu.norm(dim=-1, keepdim=True)

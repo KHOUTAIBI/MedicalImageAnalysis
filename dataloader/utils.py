@@ -16,6 +16,7 @@ def load(config):
     
     # Loading Point dataset / Just points with noise added
     if config["dataset"] == "points_dataset":
+
         dataset, labels = load_points(n_angles=config["n_angles"])  # dataset: np.array, labels: DataFrame
         dataset = dataset.astype(np.float32)
 
@@ -24,6 +25,7 @@ def load(config):
 
     # S1 Circle Dataset With dstorted poles
     elif config["dataset"] == "S1_dataset":
+
         dataset, labels, _ = load_S1_synthetic_data(
             rotation_init_type=config["rotation_init_type"],
             n_angles = config["n_angles"],
@@ -32,6 +34,7 @@ def load(config):
             distortion_type=config["distortion_type"]
         )
 
+        dataset = (dataset - dataset.mean(axis=0)) / dataset.std(axis=0) # type: ignore
     
     # S2 Sphere with Distorted Poles
     elif config["dataset"] == "S2_dataset":
@@ -68,7 +71,7 @@ def load(config):
     X_train, X_test, y_train, y_test = train_test_split(
         dataset,
         labels_np,
-        test_size=0.3,
+        test_size=0.2,
         random_state=0,
         shuffle=True,
     )
@@ -109,13 +112,17 @@ def latent_loss(labels, z, config):
     # ----------------------------------------
     if dataset == "S1_dataset":
         # angle from latent code (use x,y coordinates)
-        latent_phi = torch.atan2(z[:, 1], z[:, 0])
-        # latent_phi = (latent_phi + 2*torch.pi) % (2*torch.pi)
+        
+        latent_phi = torch.atan2(z[..., 1], z[..., 0])
+        latent_phi = (latent_phi + 2*torch.pi) % (2*torch.pi)
 
         gt_phi = labels[:, 0]
+        radius = torch.norm(z, dim=-1)
+        radius_loss = (radius - 1.0)**2
 
         diff = torch.cos(latent_phi - gt_phi)
-        return ((1 - diff)**2).mean()
+        latent_loss = (1 - diff)**2 + 0.1 * radius_loss
+        return latent_loss.mean()
 
     # ----------------------------------------
     # S2: use z ∈ S² and convert labels (θ, φ) to true vec

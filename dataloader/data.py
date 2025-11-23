@@ -206,7 +206,9 @@ def load_S1_synthetic_data(rotation_init_type : str,
         "labels" : angles
     })
 
+
     data = torch.zeros(size=(n_angles, embedding_dim))
+    
     for idx, angle in enumerate(angles):
         data[idx] = immersion(angle)
 
@@ -443,10 +445,10 @@ def load_T2_synthetic_data(
 
 # -------------------------------------- Testing ---------------------------------------
 
-noisy_points, labels_noisy, original_points = load_T2_synthetic_data(rotation_init_type="", embedding_dim=3, noise_var=0.1)
-#  print(labels_noisy.head())
+# noisy_points, labels_noisy, original_points = load_S1_synthetic_data(rotation_init_type="", embedding_dim=3, noise_var=0.1, distortion_type="bump")
+# #  print(labels_noisy.head())
 
-# # # # # bump = _bump(position=500, width=100, length_bump=points.shape[0])
+# # # # # # bump = _bump(position=500, width=100, length_bump=points.shape[0])
 # N = original_points.shape[0]
 # n = int(np.sqrt(N))
 # X = original_points[:, 0].reshape(n, n)
@@ -455,6 +457,6 @@ noisy_points, labels_noisy, original_points = load_T2_synthetic_data(rotation_in
 
 # fig = plt.figure()
 # ax = fig.add_subplot(projection='3d')
-# ax.plot_wireframe(X, Y, Z, color='k', linewidth=0.5)
-# # ax.scatter(noisy_points[:,0], noisy_points[:,1], noisy_points[:,2], s=3)
+# ax.plot3D(X, Y, Z, color='k', linewidth=0.5)
+# ax.scatter(noisy_points[:,0], noisy_points[:,1], noisy_points[:,2], s=3)
 # plt.show()

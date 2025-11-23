@@ -20,7 +20,7 @@ def main(config):
     train_loader, test_loader, _ = load(config)
     # loading model
 
-    if config["dataset"] == "S2_dataset":
+    if config["dataset"] == "S2_dataset" or config["dataset"] == "S1_dataset":
         model = SphericalVAE(config)
     elif config["dataset"] == "T2_dataset":
         model = ToroidalVAE(config)
@@ -37,7 +37,7 @@ def main(config):
 
 config = {
 
-    "dataset" : "T2_dataset", # dataset type to be used
+    "dataset" : "S1_dataset", # dataset type to be used
     "longest_radius" : 1.5, # Longest radius of the torus
     "shortest_radius" : 0.5, # Shortest radius of the torus
     "batch_size" : 64,  # Batch size of the dataloader
@@ -46,15 +46,15 @@ config = {
     "rotation_init_type" : "", # random init of points
     "n_angles" : 1000, # angles of points
     "n_wiggles" : 3, # number of wiggles
-    "distortion_type" : "wiggle", # distortion types
+    "distortion_type" : "bump", # distortion types
     "scheduler" : False,             # Step scheduler or not / default False
     "lr" : 1e-4,                    # LR 
     "weight_decay" : 1e-6,          # Weight decay L2 regularization
     "n_grid" : 38,
 
-    "train" : False,
+    "train" : True,
     "infer" : True,
-    "save_path" : "./saves/toroidal_VAE_chkpt_final.pth",
+    "save_path" : "./saves/circular_VAE_chkpt_final.pth",
  
 
     "extrinsic_dim": 3,        # e.g. dimension of extrinsic features (xyz)

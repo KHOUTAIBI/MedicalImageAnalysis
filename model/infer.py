@@ -7,9 +7,74 @@ def infer(config):
         Inference step of the VAE
     """
 
+    if config["dataset"] == "S1_dataset":
+
+        model = SphericalVAE(config)  
+        state_dict = torch.load(config["save_path"], map_location=config["device"])
+        model.load_state_dict(state_dict)
+        model.eval()
+
+        # Build a grid on the unit circle
+        n = config["n_grid"]
+        theta = torch.linspace(0, 2 * torch.pi, n)   # angles on S1
+
+        z1 = torch.cos(theta)
+        z2 = torch.sin(theta)
+        z  = torch.zeros_like(z1)
+
+        z_grid = torch.stack([z1, z2, z], dim=-1)                       # (n, 3)
+        z_flat = z_grid.to(config["device"])                         # (n, 3)
+
+        # Load synthetic S1 data
+        noisy_points, _, original_points = load_S1_synthetic_data(
+            rotation_init_type="",
+            n_angles=config["n_angles"],
+            n_wiggles=config["n_wiggles"],
+            embedding_dim=model.config["embedding_dim"],
+            distortion_type="wiggle"
+        )
+
+        # Encode noisy points and normalize to S1
+        z_latent, _ = model.encode(noisy_points.to(config["device"]))
+        z_latent = z_latent.detach().cpu()
+
+        print(f"latent points are: {z_latent}")
+
+        # Original circle points
+        X_original = original_points[:, 0]
+        Y_original = original_points[:, 1]
+
+        # Latent points (same shape as noisy / original)
+        X_latent = z_latent[:, 0]
+        Y_latent = z_latent[:, 1]
+
+        # Decode points on the circle grid
+        with torch.no_grad():
+            x_mu = model.decode(z_flat)           # (n, 2)
+
+        mse = torch.nn.functional.mse_loss(x_mu.cpu(), original_points[:n])
+        print("MSE (decoded vs original):", mse.item())
+
+        x_mu = x_mu.cpu().numpy()
+        X = x_mu[:, 0]
+        Y = x_mu[:, 1]
+
+        # Plot in 2D
+        plt.figure()
+        plt.grid()
+        plt.scatter(X, Y, color='k', linewidths=0.5, label='decoded grid')
+        plt.scatter(X_original, Y_original, color='b', linewidths=0.5, label='original')
+        plt.scatter(X_latent, Y_latent, color='r', linewidths=0.5, label='latent')
+
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.axis("equal")
+        plt.legend()
+        plt.show()
+
     if config["dataset"] == "S2_dataset":
 
-        # S1 Inference
+        # S2 Inference
         model = SphericalVAE(config)
         state_dict = torch.load(config["save_path"], map_location=config["device"])
         model.load_state_dict(state_dict)
@@ -56,7 +121,7 @@ def infer(config):
         with torch.no_grad():
             x_mu = model.decode(z_flat)     
 
-        print(torch.nn.functional.mse_loss(x_mu.cpu(), original_points))
+        print(f"The MSE loss is: {torch.nn.functional.mse_loss(x_mu.cpu(), original_points)}")
         x_mu = x_mu.cpu().numpy()
 
         X = x_mu[:, 0].reshape(n, n)
@@ -132,7 +197,7 @@ def infer(config):
         with torch.no_grad():
             x_mu = model.decode(z_flat)     
 
-        print(torch.nn.functional.mse_loss(x_mu.cpu(), original_points))
+        print(f"The MSE loss is: {torch.nn.functional.mse_loss(x_mu.cpu(), original_points)}")
         x_mu = x_mu.cpu().numpy()
 
         X = x_mu[:, 0].reshape(n, n)
