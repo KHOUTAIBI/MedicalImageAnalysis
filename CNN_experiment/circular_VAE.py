@@ -1,0 +1,1 @@
+# we should define a circular VAE to work with the activations of the CNN given a rotated version of the same image (at inference)
