@@ -153,18 +153,30 @@ def latent_loss(labels, z, config):
         return ls2.mean()
 
     elif config["dataset"] == "T2_dataset":
-        # Torus Loss
+        
+        R = config["longest_radius"]   # major radius
+        r = config["shortest_radius"]  # minor radius
 
-        rho = torch.sqrt(z[..., 0]**2 + z[..., 1]**2)
+        x = z[..., 0]
+        y = z[..., 1]
+        zc = z[..., 2]
 
-        latent_thetas = (torch.atan2(z[..., 2], rho - config["longest_radius"]) + 2 * torch.pi) % (2 * torch.pi)
-        latent_phis   = (torch.atan2(z[..., 1], z[..., 0]) + 2 * torch.pi) % (2 * torch.pi)
+        rho = torch.sqrt(x**2 + y**2)
 
+        latent_phis = torch.atan2(y, x)                    # phi
+        latent_thetas = torch.atan2(zc, rho - R)           # theta
+
+        # Wrap to [0, 2π)
+        latent_phis   = (latent_phis   + 2*torch.pi) % (2*torch.pi)
+        latent_thetas = (latent_thetas + 2*torch.pi) % (2*torch.pi)
+
+        # Angle losses
         thetas_loss = torch.mean(1 - torch.cos(latent_thetas - labels[:, 0]))
         phis_loss   = torch.mean(1 - torch.cos(latent_phis   - labels[:, 1]))
+        torus_constraint = ((rho - R)**2 + zc**2 - r**2)**2
 
-        latent_loss = thetas_loss + phis_loss
-        return latent_loss
+        latent_loss = thetas_loss + phis_loss + + 0.1 * torus_constraint             
+        return latent_loss.mean()
 
     else:
         raise ValueError("Unknown dataset type in latent_loss()")

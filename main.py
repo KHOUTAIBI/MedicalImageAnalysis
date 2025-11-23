@@ -48,27 +48,27 @@ config = {
     "n_wiggles" : 3, # number of wiggles
     "distortion_type" : "wiggle", # distortion types
     "scheduler" : False,             # Step scheduler or not / default False
-    "lr" : 1e-3,                    # LR 
+    "lr" : 1e-4,                    # LR 
     "weight_decay" : 1e-6,          # Weight decay L2 regularization
     "n_grid" : 38,
 
-    "train" : True,
+    "train" : False,
     "infer" : True,
     "save_path" : "./saves/toroidal_VAE_chkpt_final.pth",
  
 
     "extrinsic_dim": 3,        # e.g. dimension of extrinsic features (xyz)
     "latent_dim": 3,          # size of latent code
-    "sftbeta": 4.5,            # smoothing / scaling factor if used
+    "sftbeta": 1.0,            # smoothing / scaling factor if used
     "encoder_width": 128,      # width of MLP layers in encoder
     "encoder_depth": 4,        # number of layers in encoder
     "decoder_width": 128,      # width of MLP layers in decoder
     "decoder_depth": 4,        # number of layers in decoder
     "dropout_p": 0.1,          # dropout probability
     "device": "cuda",           # or "cpu"
-    "gamma" : 1.0, # reconstruction loss
+    "gamma" : 2.0, # reconstruction loss
     "beta" : 0.01, # beta refularizer of KL divergence 
-    "alpha" : 1.5, # regularization of latent loss
+    "alpha" : 10.0, # regularization of latent loss
 }
 
 

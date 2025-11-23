@@ -443,18 +443,18 @@ def load_T2_synthetic_data(
 
 # -------------------------------------- Testing ---------------------------------------
 
-# noisy_points, labels_noisy, original_points = load_T2_synthetic_data(rotation_init_type="", embedding_dim=3, noise_var=0.1)
-# # print(labels_noisy.head())
+noisy_points, labels_noisy, original_points = load_T2_synthetic_data(rotation_init_type="", embedding_dim=3, noise_var=0.1)
+#  print(labels_noisy.head())
 
-# # # # bump = _bump(position=500, width=100, length_bump=points.shape[0])
-# N = noisy_points.shape[0]
+# # # # # bump = _bump(position=500, width=100, length_bump=points.shape[0])
+# N = original_points.shape[0]
 # n = int(np.sqrt(N))
-# X = noisy_points[:, 0].reshape(n, n)
-# Y = noisy_points[:, 1].reshape(n, n)
-# Z = noisy_points[:, 2].reshape(n, n)
+# X = original_points[:, 0].reshape(n, n)
+# Y = original_points[:, 1].reshape(n, n)
+# Z = original_points[:, 2].reshape(n, n)
 
 # fig = plt.figure()
 # ax = fig.add_subplot(projection='3d')
-# ax.scatter(X, Y, Z, color='k', linewidth=0.5)
+# ax.plot_wireframe(X, Y, Z, color='k', linewidth=0.5)
 # # ax.scatter(noisy_points[:,0], noisy_points[:,1], noisy_points[:,2], s=3)
 # plt.show()
