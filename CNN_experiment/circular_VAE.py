@@ -18,11 +18,11 @@ class CircularVAE(nn.Module):
         # Maps High-dim CNN features -> Parameters of a 2D Gaussian
         self.encoder_net = nn.Sequential(
             nn.Linear(self.extrinsic_dim, config["encoder_width"]),
-            nn.ReLU(),
+            nn.Mish(),
             nn.Linear(config["encoder_width"], config["encoder_width"]),
-            nn.ReLU(),
+            nn.Mish(),
             nn.Linear(config["encoder_width"], config["encoder_width"]),
-            nn.ReLU()
+            nn.Mish()
         )
         
         self.fc_mu = nn.Linear(config["encoder_width"], 2) 
@@ -32,9 +32,9 @@ class CircularVAE(nn.Module):
         # Maps Latent Angle (cos, sin) -> Reconstructed CNN features
         self.decoder_net = nn.Sequential(
             nn.Linear(2, config["decoder_width"]),
-            nn.ReLU(),
+            nn.Mish(),
             nn.Linear(config["decoder_width"], config["decoder_width"]),
-            nn.ReLU(),
+            nn.Mish(),
             nn.Linear(config["decoder_width"], self.extrinsic_dim)
         )
 
@@ -61,13 +61,15 @@ class CircularVAE(nn.Module):
         # Project onto the circle (Normalization)
         # 1e-8 added for numerical stability
         z_sample = z_raw / (z_raw.norm(dim=-1, keepdim=True) + 1e-8)
-        
+        # z_sample = z_raw
+
         return z_sample, (mu, logvar)
 
     def decode(self, z):
         return self.decoder_net(z)
 
     def forward(self, x):
+        
         mu, logvar = self.encode(x)
         z_sample, params = self.reparameterize(mu, logvar)
         x_recon = self.decode(z_sample)

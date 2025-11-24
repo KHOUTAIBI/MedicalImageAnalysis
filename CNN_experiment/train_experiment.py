@@ -4,14 +4,16 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from errors import *
 
 # Import our custom modules
-from circular_vae import CircularVAE
+from circular_VAE import CircularVAE
 from dataset import Coil100FeatureDataset
 
 # --- CONFIGURATION ---
 config = {
     "object_id": 1,         # We tet with object of id 1
+    "save_path" : "./saves/circular_resnet_final.pth",
     
     "batch_size": 16,      
     "n_epochs": 1000,
@@ -45,6 +47,7 @@ def train():
     for epoch in tqdm(range(config["n_epochs"]), desc="Epochs"):
         epoch_loss = 0
         for x, theta_true in dataloader:
+            
             x = x.to(config["device"])
             theta_true = theta_true.to(config["device"])
             
@@ -64,19 +67,30 @@ def train():
             optimizer.step()
             epoch_loss += total_loss.item()
             
+        if (epoch + 1) % 10 == 0:
+            torch.save(model.state_dict(), config["save_path"])
+        
         loss_history.append(epoch_loss / len(dataloader))
         
     print("Training Complete.")
-    visualize_results(model, dataset)
 
-def visualize_results(model, dataset):
+def visualize_results(dataset):
+    
+
+    model = CircularVAE(config).to(device=config["device"])
+    model.load_state_dict(torch.load(config["save_path"]))
+
     model.eval()
+    
     loader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
     x_all, theta_all = next(iter(loader))
     x_all = x_all.to(config["device"])
+
+    print(theta_all.shape)
     
     with torch.no_grad():
         z_sample, x_recon, (mu, logvar) = model(x_all)
+        
     
     # Fixed: move to CPU for plotting
     z_vis = z_sample.cpu().numpy()
@@ -98,7 +112,18 @@ def visualize_results(model, dataset):
     # Plot 2: Reconstruction error profile (proxy for extrinsic curvature)
     # High reconstruction error implies high curvature (hard to fit)
     error_per_point = np.mean((x_original - x_reconstructed)**2, axis=1)
-    
+
+
+    angles_mu = ( torch.atan2(mu[:, 1], mu[:, 0]) + (2 * np.pi) ) % (2 * np.pi)
+    print(angles_mu.shape, theta_all.shape)
+    curvature_learned = curvature_S1(angles_mu)
+    curvature_true = curvature_S1(theta_all)
+
+    print(curvature_learned.shape, curvature_true.shape)
+
+    curvature_error = curvature_error_S1(theta_all, curvature_learned, curvature_true)
+    print(f"The curvature error is: {curvature_error}")
+
     sort_idx = np.argsort(theta_vis)
     sorted_angles = np.degrees(theta_vis[sort_idx])
     sorted_error = error_per_point[sort_idx]
@@ -114,4 +139,7 @@ def visualize_results(model, dataset):
     plt.show()
 
 if __name__ == "__main__":
-    train()
+    train()   
+    dataset = Coil100FeatureDataset(root_dir="./data", object_id=config["object_id"])
+    dataloader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
+    visualize_results(dataset=dataset)
