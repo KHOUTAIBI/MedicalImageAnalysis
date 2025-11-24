@@ -1,108 +1,100 @@
-import math
 import torch
-from sampler.ive import ive
-from torch.distributions import Distribution, constraints
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
 
-
-class VonMisesFisher3D(Distribution):
-    """
-    Simpler von Mises–Fisher distribution on the unit sphere in R^3.
-
-    Parameters
-    ----------
-    loc : tensor (..., 3)
-        Mean direction, expected to be (approximately) unit-norm.
-    scale : tensor (...)
-        Concentration kappa > 0.
-    """
-
-    arg_constraints = {
-        "loc": constraints.real,
-        "scale": constraints.positive,
-    } # type: ignore
-    
-    support = constraints.real # type: ignore
-    has_rsample = True
-
-    def __init__(self, loc, scale, validate_args=None):
-        assert loc.shape[-1] == 3, "This simple version o"
-        "only supports R^3."
-        self.loc = loc / (loc.norm(dim=-1, keepdim=True))   # normalize just in case BECAUSE VON MISES NEEDS MU TO BE OR NORM 1 ||mu|| = 1
-        self.scale = scale
-        self.device = loc.device
-        self.dtype = loc.dtype
-
-        super().__init__(batch_shape=self.loc.shape[:-1], validate_args=validate_args)
-
-   
-    def mean(self):
-        # E[X] = A_m(kappa) * mu with m=3
-        m = 3
-        kappa = self.scale
-        A = ive(m / 2, kappa) / ive(m / 2 - 1, kappa) # type: ignore
-        return self.loc * A.unsqueeze(-1)
-
-    
-    def stddev(self):
-        # Not really a standard notion on the sphere; we just return kappa
-        return self.scale
-
-    def _sample_w3(self, sample_shape):
+class CircularVAE(nn.Module):
+    def __init__(self, config):
         """
-        Sample w = cos(theta) for m=3.
-        This is a simplified version of the original __sample_w3.
+        A Robust VAE for Circular Manifolds (S1) using Projected Normal distribution.
+        This serves as a differentiable alternative to Von Mises-Fisher for S1.
         """
-        shape = sample_shape + self.scale.shape
-        u = torch.rand(shape, device=self.device, dtype=self.dtype)
-        # same formula as in the original code, but written more directly
-        log_u = torch.log(u)
-        log_1_minus_u = torch.log(1 - u)
-        # numerically stable: logsumexp over [log(u), log(1-u) - 2*kappa]
-        stacked = torch.stack([log_u, log_1_minus_u - 2 * self.scale], dim=0)
-        log_sum = torch.logsumexp(stacked, dim=0)
-        w = 1 + log_sum / self.scale
-        return w
-
-    def rsample(self, sample_shape=torch.Size()):
-        """
-        Reparameterized sampling.
-        Returns samples of shape sample_shape + batch_shape + (3,).
-        """
-        w = self._sample_w3(sample_shape)  # shape: sample_shape + batch_shape
-
-        # Sample a random vector and make it orthogonal to loc
-        # Shape target: sample_shape + batch_shape + (3,)
-        eps = torch.randn(sample_shape + self.loc.shape, device=self.device, dtype=self.dtype)
-        # Remove component along loc
-        proj = (eps * self.loc).sum(dim=-1, keepdim=True)
-        v = eps - proj * self.loc
-        v = v / (v.norm(dim=-1, keepdim=True) + 1e-8)  # unit vector orthogonal to loc
-
-        # Combine radial and tangential parts
-        w_expanded = w.unsqueeze(-1)                                      # (..., 1)
-        factor = torch.sqrt(torch.clamp(1 - w_expanded**2, 1e-10, 1.0))   # (..., 1)
-        x = w_expanded * self.loc + factor * v                            # (..., 3)
-
-        return x
-
-    def log_prob(self, x):
-        """
-        log p(x) = kappa * <mu, x> - log C_3(kappa)
-        """
-        kappa = self.scale
-        dot = (self.loc * x).sum(dim=-1)  # inner product <mu, x>
-
-        return kappa * dot - self._log_normalization()
-
-    def _log_normalization(self):
-        """
-        log C_3(kappa) for m=3:
-        C_3(kappa) = kappa / (4*pi * sinh(kappa))
-        So log C_3(kappa) = log(kappa) - log(4*pi) - log(sinh(kappa))
-        """
-        kappa = self.scale
-        return (
-            torch.log(kappa)
-            - math.log(4 * math.pi)
-            - torch.log(torch.sinh(kappa) + 1e-10)
+        super().__init__()
+        self.config = config
+        self.device = config["device"]
+        self.extrinsic_dim = config["extrinsic_dim"]  # e.g., 512 for ResNet features
+        
+        # --- ENCODER ---
+        # Maps high-dim CNN features -> Parameters of the distribution in 2D
+        self.encoder_net = nn.Sequential(
+            nn.Linear(self.extrinsic_dim, config["encoder_width"]),
+            nn.ReLU(),
+            nn.Linear(config["encoder_width"], config["encoder_width"]),
+            nn.ReLU(),
+            nn.Linear(config["encoder_width"], config["encoder_width"]),
+            nn.ReLU()
         )
+        
+        # We predict a Mean Vector in R^2
+        self.fc_mu = nn.Linear(config["encoder_width"], 2) 
+        
+        # We predict a Log-Variance (controls concentration/uncertainty)
+        # One scalar is sufficient for isotropic concentration on the circle
+        self.fc_logvar = nn.Linear(config["encoder_width"], 1)
+
+        # --- DECODER ---
+        # Maps a point on the circle (cos, sin) -> Reconstructed CNN features
+        self.decoder_net = nn.Sequential(
+            nn.Linear(2, config["decoder_width"]),
+            nn.ReLU(),
+            nn.Linear(config["decoder_width"], config["decoder_width"]),
+            nn.ReLU(),
+            nn.Linear(config["decoder_width"], self.extrinsic_dim)
+        )
+
+    def encode(self, x):
+        h = self.encoder_net(x)
+        mu = self.fc_mu(h)
+        logvar = self.fc_logvar(h)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        """
+        The "Projected Normal" Trick (Differentiable Sampling):
+        1. We treat 'mu' and 'logvar' as parameters of a Gaussian in R^2.
+        2. We sample a point from this Gaussian.
+        3. We project that point onto the unit circle.
+        
+        This is topologically valid for S1 and numerically stable.
+        """
+        std = torch.exp(0.5 * logvar)
+        
+        # 1. Sample epsilon noise
+        eps = torch.randn_like(mu)
+        
+        # 2. Apply reparameterization (z_raw is in R^2 plane)
+        z_raw = mu + eps * std
+        
+        # 3. Project to Circle (Normalization)
+        # This creates the latent variable 'z' that lies on S1
+        z_circle = z_raw / (z_raw.norm(dim=-1, keepdim=True) + 1e-8)
+        
+        return z_circle, (mu, logvar)
+
+    def decode(self, z):
+        return self.decoder_net(z)
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z_sample, _ = self.reparameterize(mu, logvar)
+        x_recon = self.decode(z_sample)
+        
+        # Return params for loss calculation
+        return z_sample, x_recon, (mu, logvar)
+
+    def _elbo(self, x, x_recon, posterior_params):
+        """
+        Calculates the Loss Function.
+        """
+        mu, logvar = posterior_params
+        
+        # 1. Reconstruction Loss (How well do we preserve the object features?)
+        recon_loss = torch.mean((x - x_recon)**2)
+        
+        # 2. Regularization (KL Proxy)
+        # For Projected Normal, exact KL is complex. 
+        # We use a standard Gaussian KL on the pre-projected parameters.
+        # This effectively regularizes the latent space to be smooth.
+        kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        
+        return self.config["gamma"] * recon_loss + self.config["beta"] * kl_loss

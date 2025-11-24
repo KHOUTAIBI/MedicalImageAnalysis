@@ -219,3 +219,5 @@ __marimo__/
 saves/*
 
 CNN_experiment/data/*
+
+data/
