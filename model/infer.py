@@ -26,7 +26,7 @@ def infer(config):
         z_flat = z_grid.to(config["device"])                         # (n, 3)
 
         # Load synthetic S1 data
-        noisy_points, _, original_points = load_S1_synthetic_data(
+        noisy_points, labels, original_points = load_S1_synthetic_data(
             rotation_init_type="",
             n_angles=config["n_angles"],
             n_wiggles=config["n_wiggles"],
@@ -38,7 +38,9 @@ def infer(config):
         z_latent, _ = model.encode(noisy_points.to(config["device"]))
         z_latent = z_latent.detach().cpu()
 
-        print(f"latent points are: {z_latent}")
+        latent_angles = (torch.atan2(z_latent[:, 1], z_latent[:, 0]) + (2 * torch.pi)) % (2 * torch.pi)
+        
+        print(f"latent points are: {z_latent} and angles: {latent_angles}")
 
         # Original circle points
         X_original = original_points[:, 0]
@@ -53,7 +55,9 @@ def infer(config):
             x_mu = model.decode(z_flat)           # (n, 2)
 
         mse = torch.nn.functional.mse_loss(x_mu.cpu(), original_points[:n])
+        curvature_error = curvature_error_S1(theta, latent_angles, labels)
         print("MSE (decoded vs original):", mse.item())
+        print(f"The curvature error is: {curvature_error}")
 
         x_mu = x_mu.cpu().numpy()
         X = x_mu[:, 0]
@@ -97,6 +101,12 @@ def infer(config):
         )
 
         z_latent, _ = model.encode(noisy_points.to(config["device"]))
+
+        theta_hat = torch.acos(z_latent[..., 0].clamp(-1.0, 1.0))
+        phi_hat   = torch.atan2(z_latent[..., 1], z_latent[..., 0])
+        phi_hat = (phi_hat + (2 * torch.pi)) % (2 * torch.pi)
+
+        latent_angles = torch.stack((theta_hat, phi_hat), dim=-1)
         z_latent /= z_latent.norm(dim = -1, keepdim=True)
 
         z_latent = z_latent.detach().cpu()
@@ -121,7 +131,14 @@ def infer(config):
         with torch.no_grad():
             x_mu = model.decode(z_flat)     
 
+        curvature_learned = curvature_S2(latent_angles)
+        curvature_real = curvature_S2(labels_noisy) 
+
+        curvature_error = compute_curvature_error_S2(theta, phi, curvature_learned, curvature_real)
+
         print(f"The MSE loss is: {torch.nn.functional.mse_loss(x_mu.cpu(), original_points)}")
+        print(f"The curvature error is: {curvature_error}")
+        
         x_mu = x_mu.cpu().numpy()
 
         X = x_mu[:, 0].reshape(n, n)
@@ -166,7 +183,7 @@ def infer(config):
         z2 = (R + r * torch.cos(Theta)) * torch.sin(Phi)
         z3 =  r * torch.sin(Theta)
 
-        noisy_points, _, original_points = load_T2_synthetic_data(
+        noisy_points, labels_noisy, original_points = load_T2_synthetic_data(
             rotation_init_type="",
             embedding_dim=model.config["embedding_dim"]
         )
@@ -177,6 +194,13 @@ def infer(config):
 
         z_latent = z_latent.detach().cpu()
         print(f"latent is  are: {z_latent}")
+
+        theta_hat = torch.acos(z_latent[..., 0].clamp(-1.0, 1.0))
+        phi_hat   = torch.atan2(z_latent[..., 1], z_latent[..., 0])
+        phi_hat = (phi_hat + (2 * torch.pi)) % (2 * torch.pi)
+
+        latent_angles = torch.stack((theta_hat, phi_hat), dim=-1)
+        z_latent /= z_latent.norm(dim = -1, keepdim=True)
 
         n_noisy = noisy_points.shape[0]
         n_noisy = int(np.sqrt(n_noisy))
@@ -197,7 +221,10 @@ def infer(config):
         with torch.no_grad():
             x_mu = model.decode(z_flat)     
 
+        curvature_error = compute_curvature_error_T2(theta, phi, latent_angles, labels_noisy)
         print(f"The MSE loss is: {torch.nn.functional.mse_loss(x_mu.cpu(), original_points)}")
+        print(f"The curvature error is: {curvature_error}")
+
         x_mu = x_mu.cpu().numpy()
 
         X = x_mu[:, 0].reshape(n, n)

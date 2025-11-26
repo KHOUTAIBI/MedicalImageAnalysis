@@ -52,7 +52,7 @@ config = {
     "weight_decay" : 1e-6,          # Weight decay L2 regularization
     "n_grid" : 38,
 
-    "train" : True,
+    "train" : False,
     "infer" : True,
     "save_path" : "./saves/circular_VAE_chkpt_final.pth",
  

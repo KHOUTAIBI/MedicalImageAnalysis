@@ -209,6 +209,10 @@ def curvature_S2(angles: torch.Tensor) -> torch.Tensor:
     angles: shape (N, 2) or (..., 2)
     returns: shape (3, N) or (3, ...) depending on input
     """
+
+    if not isinstance(angles, torch.Tensor):
+        angles = torch.tensor(np.array(angles))
+
     thetas = angles[..., 0]
     phis   = angles[..., 1]
 
@@ -230,11 +234,16 @@ def curvature_error_S1(thetas, curvature_norms_learned, curvature_norms_true):
     Ht = curvature_norms_true
 
     H  = H.detach().cpu().numpy()
-    Ht = Ht.detach().cpu().numpy()
+    Ht = Ht.detach().cpu().numpy() if isinstance(Ht, torch.Tensor) else np.array(Ht) 
     thetas = np.asarray(thetas)
 
+    n = thetas.shape[0]
+    H = H.reshape(n, n)
+    Ht = Ht.reshape(n, n)
+
     diff_norm_sq = np.linalg.norm(H - Ht, axis=-1)**2       
-    norm_sq = np.linalg.norm(H, axis=-1)**2 + np.linalg.norm(Ht, axis=-1)**2           
+    norm_sq = np.linalg.norm(H, axis=-1)**2 + np.linalg.norm(Ht, axis=-1)**2    
+      
 
     numerator   = np.trapezoid(diff_norm_sq, thetas)
     denominator = np.trapezoid(norm_sq, thetas)
@@ -254,6 +263,7 @@ def integrate_S2(thetas, phis, h):
     Nphi = len(phis)
 
     h = h.reshape(Ntheta, Nphi)
+    h = torch.tensor(h).to(device=thetas.device)
 
     inner = torch.trapz(h, phis, dim=1) * torch.sin(thetas)
 
@@ -265,8 +275,15 @@ def compute_curvature_error_S2(thetas, phis, curv_norms_learned, curv_norms_true
     ERROR = As seen int eh apper in case of S2
     """
 
-    H = curv_norms_learned.cpu()
-    Ht = curv_norms_true.cpu()
+    if isinstance(curv_norms_learned, torch.Tensor):
+        H = curv_norms_learned.detach().cpu().numpy()
+    else:
+        H = np.asarray(curv_norms_learned)
+
+    if isinstance(curv_norms_true, torch.Tensor):
+        Ht = curv_norms_true.detach().cpu().numpy()
+    else:
+        Ht = np.asarray(curv_norms_true)
 
     H = np.asarray(H)
     Ht = np.asarray(Ht)
@@ -277,6 +294,65 @@ def compute_curvature_error_S2(thetas, phis, curv_norms_learned, curv_norms_true
     return diff / norm
 
 
+def curvature_T2(angles, major_radius, minor_radius):
+    """
+        Curvature of the Torus, read the Paper
+    """
+
+    thetas = angles[..., 0]
+    phis   = angles[..., 1]
+
+    curvatures = torch.stack([
+        -torch.sin(thetas) * torch.cos(phis),
+        -torch.sin(thetas) * torch.sin(phis),
+        -torch.cos(thetas)
+    ], dim=0)
+
+    coefficient = (major_radius + 2 * minor_radius * torch.cos(phis)) / (minor_radius * (major_radius + minor_radius * torch.cos(phis)))
+
+    return coefficient * curvatures
+
+def integrate_T2(thetas, phis, h):
+    """
+    Computes: double integral h(theta, phi) sin theta  dphi dtheta
+    """
+
+    thetas = torch.unique(thetas, sorted=True)
+    phis   = torch.unique(phis,   sorted=True)
+
+    Ntheta = len(thetas)
+    Nphi = len(phis)
+
+    h = h.reshape(Ntheta, Nphi)
+    h = torch.tensor(h).to(device=thetas.device)
+
+    inner = torch.trapz(h, phis, dim=1) * torch.sin(thetas)
+
+    return torch.trapz(inner, thetas)
+
+
+def compute_curvature_error_T2(thetas, phis, curv_norms_learned, curv_norms_true):
+    """
+    ERROR = As seen int eh apper in case of S2
+    """
+
+    if isinstance(curv_norms_learned, torch.Tensor):
+        H = curv_norms_learned.detach().cpu().numpy()
+    else:
+        H = np.asarray(curv_norms_learned)
+
+    if isinstance(curv_norms_true, torch.Tensor):
+        Ht = curv_norms_true.detach().cpu().numpy()
+    else:
+        Ht = np.asarray(curv_norms_true)
+
+    H = np.asarray(H)
+    Ht = np.asarray(Ht)
+
+    diff = integrate_T2(thetas, phis, np.linalg.norm(H - Ht, axis = -1)**2)
+    norm = integrate_T2(thetas, phis, np.linalg.norm(H, axis = -1)**2 + np.linalg.norm(Ht, axis = -1)**2)
+
+    return diff / norm
 
 
 

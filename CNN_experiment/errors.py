@@ -40,7 +40,7 @@ def curvature_error_S1(thetas, curvature_norms_learned, curvature_norms_true):
     H  = curvature_norms_learned
     Ht = curvature_norms_true
 
-    H  = H.detach().cpu().numpy()
+    H  = H.detach().cpu().numpy() 
     Ht = Ht.detach().cpu().numpy()
     thetas = np.asarray(thetas)
 
@@ -76,8 +76,15 @@ def compute_curvature_error_S2(thetas, phis, curv_norms_learned, curv_norms_true
     ERROR = As seen int eh apper in case of S2
     """
 
-    H = curv_norms_learned.cpu()
-    Ht = curv_norms_true.cpu()
+    if isinstance(curv_norms_learned, torch.Tensor):
+        H = curv_norms_learned.cpu().numpy()
+    else:
+        H = np.asarray(curv_norms_learned)
+
+    if isinstance(curv_norms_true, torch.Tensor):
+        Ht = curv_norms_true.cpu().numpy()
+    else:
+        Ht = np.asarray(curv_norms_true)
 
     H = np.asarray(H)
     Ht = np.asarray(Ht)
