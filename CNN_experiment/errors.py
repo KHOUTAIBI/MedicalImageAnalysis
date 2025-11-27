@@ -42,7 +42,7 @@ def curvature_error_S1(thetas, curvature_norms_learned, curvature_norms_true):
 
     H  = H.detach().cpu().numpy() 
     Ht = Ht.detach().cpu().numpy()
-    thetas = np.asarray(thetas)
+    thetas = np.asarray(thetas.cpu())
 
     diff_norm_sq = np.linalg.norm(H - Ht, axis=-1)**2       
     norm_sq = np.linalg.norm(H, axis=-1)**2 + np.linalg.norm(Ht, axis=-1)**2           
