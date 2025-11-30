@@ -11,6 +11,7 @@ class SphericalUniform(Distribution):
     has_rsample = False  # sampling is not reparameterized
 
     def __init__(self, dim, validate_args=None, device=None, dtype=torch.float32):
+
         assert dim >= 2, "Dimension must be at least 2."
         self.dim = dim
         self.device = device
@@ -31,30 +32,4 @@ class SphericalUniform(Distribution):
         z = torch.randn(shape, device=self.device, dtype=self.dtype)
         return z / z.norm(dim=-1, keepdim=True)
 
-    def log_prob(self, x):
-        """
-        The uniform density on the sphere is constant:
-        p(x) = 1 / surface_area(S^{dim-1})
-        => log p(x) = -log(surface_area)
-        """
-
-        surface_area = (
-            2 * torch.pi ** (self.dim / 2)
-            / torch.lgamma(torch.tensor(self.dim / 2)).exp()
-        )
-
-        log_prob = -torch.log(surface_area)
-
-        # Return log_prob with proper shape
-        return log_prob.expand(x.shape[:-1])
-
-    def entropy(self):
-        """
-        Entropy of the uniform distribution on the sphere:
-        H = log(surface_area(S^{dim-1}))
-        """
-        surface_area = (
-            2 * torch.pi ** (self.dim / 2)
-            / torch.lgamma(torch.tensor(self.dim / 2)).exp()
-        )
-        return torch.log(surface_area)
+    

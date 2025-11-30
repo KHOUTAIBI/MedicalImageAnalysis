@@ -30,6 +30,7 @@ def train_epoch(model, train_loader, test_loader, optimizer, scheduler, epoch):
 
     # -------------------------------------- TRAIN ----------------------------------------------
     model.train()
+    
     for data, labels in batch_train_tqdm:
 
         data = data.to(model.device)
@@ -38,12 +39,13 @@ def train_epoch(model, train_loader, test_loader, optimizer, scheduler, epoch):
         optimizer.zero_grad()
 
         if model.config["dataset"] == "S2_dataset" or model.config["dataset"] == "S1_dataset":
+
             z_batch, x_mu_batch, posterior_params = model(data)
+            z_proj = z_batch / z_batch.norm(dim = -1, keepdim = True)
             z_mu, _ = posterior_params
-            z_mu = z_mu / z_mu.norm(dim=-1, keepdim=True)
 
             elbo_loss_train = model._elbo(data, x_mu_batch, posterior_params)
-            latent_loss_batch_train = latent_loss(labels, z_mu, model.config)
+            latent_loss_batch_train = latent_loss(labels, z_proj, model.config)
             elbo_loss_train += model.config["alpha"] * latent_loss_batch_train
 
             if epoch % 50 == 0:

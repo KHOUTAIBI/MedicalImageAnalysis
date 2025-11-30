@@ -146,13 +146,44 @@ class SphericalVAE(nn.Module):
         returns: (...,) tensor of KLs
         """
 
-        sinh_k = torch.sinh(kappa) 
-        coth_k = torch.cosh(kappa) / sinh_k
-
-        kl = torch.log(kappa) - torch.log(sinh_k) + kappa * coth_k - 1.0
+        eps = 1e-8
+        k = torch.clamp(kappa, min=eps)
+    
+        # Regions of equivalences
+        small = k < 1e-3
+        large = k > 20.0
+        mid   = ~(small | large)
+    
+        kl = torch.zeros_like(k)
+        
+        kl[small] = 0.0
+        
+        if mid.any():
+            k_mid = k[mid]
+            sinh_k = torch.sinh(k_mid) + eps
+            cosh_k = torch.cosh(k_mid)
+            coth_k = cosh_k / sinh_k
+    
+            log_sinh_k = torch.log(sinh_k)
+            kl_mid = torch.log(k_mid) - log_sinh_k + k_mid * coth_k - 1.0
+            kl[mid] = kl_mid
+    
+        
+        if large.any():
+            k_large = k[large]
+    
+            # log sinh(k) ~ k - log 2
+            log_sinh_k_large = k_large - math.log(2.0)
+    
+            # coth(k) ~ 1 + 2 e^{-2k}
+            coth_k_large = 1.0 + 2.0 * torch.exp(-2.0 * k_large)
+    
+            kl_large = torch.log(k_large) - log_sinh_k_large + k_large * coth_k_large - 1.0
+            kl[large] = kl_large
+    
         return kl
-    
-    
+        
+        
 
 
 

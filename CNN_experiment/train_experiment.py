@@ -19,10 +19,10 @@ config = {
     "extrinsic_dim": 1000,
     "encoder_width": 128,
     "decoder_width": 128,
-    "gamma": 5.0,
-    "beta": 0.01,
-    "alpha": 5.0,
-    "train" : False,
+    "gamma": 1.0,
+    "beta": 0.1,
+    "alpha": 10.0,
+    "train" : True,
 }
 
 def train():
@@ -55,7 +55,8 @@ def train():
             z_sample, x_recon, params = model(x)
             
             elbo = model._elbo(x_true, x_recon, params)
-            pred_angle = (torch.atan2(z_sample[:, 1], z_sample[:, 0]) + (2 * torch.pi)) % (2 * torch.pi)
+            pred_angle = (torch.atan2(z_sample[..., 1], z_sample[..., 0]) + (2 * torch.pi)) % (2 * torch.pi)
+
             latent_loss = (1 - torch.cos(pred_angle - theta_true))**2
             total_loss = elbo + config["alpha"] * latent_loss.mean()
             
@@ -65,6 +66,7 @@ def train():
             epoch_loss += total_loss.item()
         
         if (epoch + 1) % 10 == 0:
+            print(params[0])
             torch.save(model.state_dict(), config["save_path"])
         
         loss_history.append(epoch_loss / len(dataloader))
@@ -97,8 +99,10 @@ def visualize_results(dataset):
         z_sample, x_recon, (mu, logvar) = model(x_noisy)
     
     # Predictions of the Logits of the model
+    print(x_recon.shape)
     pred_classes = x_recon.argmax(dim=-1)
     original_pred_classes = x_all.argmax(dim=-1)
+    print(pred_classes.size(), original_pred_classes.size())
 
     # How many correct reconstructed have we got ?
     print(f"the predicted classes after denoising are: {pred_classes} and the original predicted classes are: {original_pred_classes}")

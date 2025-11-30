@@ -1,6 +1,6 @@
 import math
 import torch
-from sampler.ive import ive
+from ive import ive
 from torch.distributions import Distribution, constraints
 
 
@@ -85,4 +85,24 @@ class VonMisesFisher3D(Distribution):
 
         return x
 
-   
+    def log_prob(self, x):
+        """
+        log p(x) = kappa * <mu, x> - log C_3(kappa)
+        """
+        kappa = self.scale
+        dot = (self.loc * x).sum(dim=-1)  # inner product <mu, x>
+
+        return kappa * dot - self._log_normalization()
+
+    def _log_normalization(self):
+        """
+        log C_3(kappa) for m=3:
+        C_3(kappa) = kappa / (4*pi * sinh(kappa))
+        So log C_3(kappa) = log(kappa) - log(4*pi) - log(sinh(kappa))
+        """
+        kappa = self.scale
+        return (
+            torch.log(kappa)
+            - math.log(4 * math.pi)
+            - torch.log(torch.sinh(kappa) + 1e-10)
+        )

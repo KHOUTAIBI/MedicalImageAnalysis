@@ -22,7 +22,7 @@ def infer(config):
         z2 = torch.sin(theta)
         z  = torch.zeros_like(z1)
 
-        z_grid = torch.stack([z1, z2, z], dim=-1)                       # (n, 3)
+        z_grid = torch.stack([z1, z2, z], dim=-1)                    # (n, 3)
         z_flat = z_grid.to(config["device"])                         # (n, 3)
 
         # Load synthetic S1 data
@@ -56,6 +56,7 @@ def infer(config):
 
         mse = torch.nn.functional.mse_loss(x_mu.cpu(), original_points[:n])
         curvature_error = curvature_error_S1(theta, latent_angles, labels)
+        
         print("MSE (decoded vs original):", mse.item())
         print(f"The curvature error is: {curvature_error}")
 
@@ -75,6 +76,7 @@ def infer(config):
         plt.axis("equal")
         plt.legend()
         plt.show()
+
 
     if config["dataset"] == "S2_dataset":
 
@@ -117,6 +119,7 @@ def infer(config):
 
         n_original = original_points.shape[0]
         n_original = int(np.sqrt(n_original))
+
         X_original = original_points[:, 0].reshape(n_original, n_original)
         Y_original = original_points[:, 1].reshape(n_original, n_original)
         Z_original = original_points[:, 2].reshape(n_original, n_original)
@@ -132,7 +135,7 @@ def infer(config):
             x_mu = model.decode(z_flat)     
 
         curvature_learned = curvature_S2(latent_angles)
-        curvature_real = curvature_S2(labels_noisy) 
+        curvature_real = curvature_S2(labels_noisy) # remember to check instance of input
 
         curvature_error = compute_curvature_error_S2(theta, phi, curvature_learned, curvature_real)
 
@@ -244,5 +247,5 @@ def infer(config):
         plt.show()
     
     else :
-        raise ValueError("Please choose between S2 and T2 !")
+        raise ValueError("Please choose between S1, S2 or T2 !")
 
