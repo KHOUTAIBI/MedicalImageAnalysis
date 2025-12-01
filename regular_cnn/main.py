@@ -5,10 +5,24 @@ import numpy as np
 import os
 import seaborn as sns
 from datetime import datetime
+import random
 
 from data_extraction import NeuralManifoldGenerator
 from s1_vae import S1_VAE, loss_function
 from geometry import compute_curvature_profile
+
+def set_seed(seed=42):
+    """Sets the seed for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        # Ensure deterministic behavior for cuDNN (slightly slower but exact)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    print(f"Random seed set to: {seed}")
 
 # Configuration
 IMAGE_PATH = "tiger.jpg"
@@ -175,6 +189,7 @@ def plot_neuroscience_dashboard(data, ground_truth_angles, curvature_profile, la
     plt.show()
 
 def main():
+    set_seed(0)
     save_dir, subplots_dir = setup_results_dir()
     
     # Generate Data 
